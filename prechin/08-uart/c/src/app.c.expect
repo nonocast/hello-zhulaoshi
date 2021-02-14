@@ -1,0 +1,72 @@
+#include <8051.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <time.h>
+
+typedef unsigned int word;
+typedef unsigned char byte;
+
+bool busy = false;
+
+void delay(word i);
+void init();
+void loop();
+void sendByte(byte);
+void sendString(char*);
+
+void main() {
+  init();
+  while (true) {
+    loop();
+  }
+}
+
+void init() {
+  IT0 = 1; // set INT0 interrupt type: (1: falling, 0: low level)
+  EX0 = 1; // enable INT0 interrupt
+
+  SCON = 0x50;      // 0b 0101 0000
+  TMOD = 0x20;      // set timer1 as 8-bit auto reload mode
+  TH1 = TL1 = 0xfd; // means 9600
+  TR1 = 1;          // timer1 start run
+  ES = 1;           // enable uart interrupt
+  EA = 1;           // open master inerrupt switch
+}
+
+void int0() __interrupt(0) {
+  delay(1000);
+  if (P3_2 == 0) {
+    P0_0 = !P0_0;
+    sendString("hello world\n");
+  }
+}
+
+void uart() __interrupt(4) {
+  if (RI) {
+    RI = false;  // clear receive interrupt flag
+  }
+  if (TI) {
+    TI = false;    // clear transmit interrupt flag
+    busy = false;  // clear transmit busy flag
+  }
+}
+
+
+void loop() {}
+
+void delay(word i) {
+  while (i--)
+    ;
+}
+
+void sendByte(byte data) {
+  // while (busy) {}
+  busy = true;
+  SBUF = data;
+}
+
+void sendString(char* string) {
+  while (*string) {
+    sendByte(*string++);
+  }
+}
